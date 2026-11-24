@@ -19,3 +19,6 @@ footer { color: #777; font-size: 13px; }
 .acked { color: #1b7f3b; font-weight: 600; white-space: nowrap; }
 .row.is-acked { background: #f3faf5; }
 [hidden] { display: none !important; }
+/* The slot always takes its height, so the bar appearing never pushes the rows down. */
+.bar-slot { height: 40px; max-width: 960px; display: flex; align-items: center; }
+.new-bar { font: inherit; font-weight: 600; padding: 6px 14px; border: 0; border-radius: 16px; background: #1d4ed8; color: #fff; cursor: pointer; }

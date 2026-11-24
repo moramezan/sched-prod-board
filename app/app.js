@@ -7,6 +7,7 @@ const list = document.querySelector('[data-testid="incident-list"]');
 const loader = document.querySelector('[data-testid="loader"]');
 const empty = document.querySelector('[data-testid="empty"]');
 const status = document.querySelector('.status');
+const newBar = document.querySelector('[data-testid="new-bar"]');
 
 /** id -> <li>; rows are kept, not rebuilt, so ack state and focus survive a refresh. */
 const rows = new Map();
@@ -80,29 +81,52 @@ function showStatus(msg) {
   status.hidden = !msg;
 }
 
-// R1: newest first; new incidents go on top, existing rows stay where they are.
-function render(incidents) {
-  const ids = new Set(incidents.map((i) => i.id));
-  for (const [id, li] of rows) {
-    if (!ids.has(id)) {
-      li.remove();
-      rows.delete(id);
-    }
-  }
-  let prev = null;
+// R1 (as product decided after step 1): the list holds still while it is on screen. Rows on the board never
+// move, get inserted above, or get removed by a refresh. New incidents wait behind the "N new" bar
+// (data-testid="new-bar"); clicking it brings them in at the top. Ack stays on the row it was clicked in.
+let pending = []; // newest first, not on the board yet
+
+function showRows(incidents) {
+  // Insert in order above the current top row: incidents is newest first.
+  const anchor = list.firstChild;
   for (const i of incidents) {
-    let li = rows.get(i.id);
-    if (!li) {
-      li = rowFor(i);
-      rows.set(i.id, li);
-    }
-    const want = prev ? prev.nextSibling : list.firstChild;
-    if (li !== want) list.insertBefore(li, want);
-    prev = li;
+    if (rows.has(i.id)) continue;
+    const li = rowFor(i);
+    rows.set(i.id, li);
+    list.insertBefore(li, anchor);
   }
-  empty.hidden = incidents.length > 0;
-  list.hidden = incidents.length === 0;
+  empty.hidden = rows.size > 0;
+  list.hidden = rows.size === 0;
 }
+
+function updateBar() {
+  const n = pending.length;
+  newBar.textContent = n === 1 ? '1 new incident · show' : `${n} new incidents · show`;
+  newBar.hidden = n === 0;
+}
+
+function render(incidents) {
+  const fresh = incidents.filter((i) => !rows.has(i.id));
+  // Nothing on the board yet, or the board is not on screen: nothing can move under anyone's pointer.
+  if (rows.size === 0 || document.visibilityState === 'hidden') {
+    pending = [];
+    showRows(fresh);
+  } else {
+    pending = fresh;
+  }
+  updateBar();
+  if (rows.size === 0) {
+    empty.hidden = false;
+    list.hidden = true;
+  }
+}
+
+newBar.addEventListener('click', () => {
+  showRows(pending);
+  pending = [];
+  updateBar();
+  list.firstElementChild?.scrollIntoView({ block: 'nearest' });
+});
 
 let loaded = false;
 async function tick() {
